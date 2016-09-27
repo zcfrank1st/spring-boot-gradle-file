@@ -1,0 +1,64 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+apply plugin: 'java'
+apply plugin: 'spring-boot'
+
+jar {
+    baseName = 'demo'
+    version = '0.0.1-SNAPSHOT'
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    if (!project.hasProperty("profile")) {
+        profile = "dev"
+    } else {
+        profile = project['profile']
+    }
+}
+
+def loadGroovyConfig(){
+    def configFile = file("${project.rootDir}/src/main/resources/config.groovy")
+    new ConfigSlurper(profile).parse(configFile.toURI().toURL()).toProperties()
+}
+
+task resourceInitProcess(type: Sync) {
+    def configHome = "${project.rootDir}/src/main/resources/config"
+
+    from(configHome) {
+        include '*.properties'
+        include '*.xml'
+        filter ReplaceTokens, tokens: loadGroovyConfig()
+    }
+    into "${buildDir}/resources/main/"
+}
+
+processResources {
+    exclude 'config*'
+}
+
+dependencies {
+    compile('org.projectlombok:lombok')
+    compile('org.springframework.boot:spring-boot-starter-web')
+    testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+
+buildscript {
+    ext {
+        springBootVersion = '1.4.1.RELEASE'
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+    }
+}
+
+compileJava.dependsOn resourceInitProcess
